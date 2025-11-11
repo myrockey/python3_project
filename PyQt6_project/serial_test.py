@@ -1,5 +1,6 @@
 # 串口调试上位机 PyQt6 串口上位机 
-# 一键打包	pyinstaller -F -w serial_test.py 生成无控制台 exe
+# 一键打包	pyinstaller -F -w serial_test.py 生成无控制台 exe #打包压缩后大小大概35M
+# pyinstaller -F -w serial_test.py --upx-dir D:\tools\upx-5.0.2-win6  #加了upx打包压缩后大小大概31M 
 # 生成的文件就是 dist/serial_test.exe
 import sys, serial, serial.tools.list_ports
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QComboBox,
