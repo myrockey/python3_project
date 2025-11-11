@@ -11,6 +11,7 @@
 支持清空和删除功能；
 支持计算结果显示。
 7.2 代码实现
+一键打包	pyinstaller -F -w main.py 生成无控制台 exe
 '''
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QLineEdit, QGridLayout, QPushButton
 from PyQt6.QtCore import Qt
