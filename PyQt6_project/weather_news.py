@@ -1,10 +1,9 @@
-# main.py
-import sys
-import random
-import requests
+# 串口调试上位机 PyQt6 串口上位机 
+# 一键打包	pyinstaller -F -w weather_news.py 生成无控制台 exe #打包压缩后大小大概35M
+# pyinstaller -F -w weather_news.py --upx-dir D:\tools\upx-5.0.2-win6  #加了upx打包压缩后大小大概31M 
+import sys,requests,base64
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
-
 from PyQt6.QtCore import QObject, pyqtSignal, QThread,QSize
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -13,27 +12,29 @@ from PyQt6.QtWidgets import (
 from pypinyin import lazy_pinyin, Style
 from urllib.parse import urlparse, parse_qs
 from readability import Document
-import re
 from bs4 import BeautifulSoup,NavigableString
-import base64
 
 # ========== 配置区（无 Key） ==========
 GEO_API = 'https://geocoding-api.open-meteo.com/v1/search'
 WEATHER_API = 'https://api.open-meteo.com/v1/forecast'
-NEWS_RSS = 'http://rss.sina.com.cn/news/china/focus15.xml'
-
-# 中文 RSS
+# RSS新闻源
 RSS_SOURCES = [
     'https://rss.aishort.top/?type=guokr',
     'https://rss.aishort.top/?type=36kr'
 ]
 
-# 英文 JSON（16 万条，每次随机抽 50 条）
-BBC_JSON = ''
-
 # =====================================
-
 # 放在 NetWorker 类外面，全局可用
+def get_city_by_ip() -> str:
+    """通过 IP 获取城市，失败返回北京"""
+    try:
+        # 大陆用户建议用这个，返回中文城市名
+        r = requests.get('https://api.vore.top/api/IPdata', timeout=3)
+        r.raise_for_status()
+        return r.json()['adcode']['c'] or '北京'
+    except Exception:
+        return '北京'
+
 def wmo_code_desc(code: int) -> str:
     """返回中文天气描述"""
     table = {
@@ -180,23 +181,7 @@ class NetWorker(QObject):
                     all_items.append((title.strip(), desc.strip(), link))
             except Exception:
                 continue
-
-        # 2. 英文 JSON 随机抽 50 条
-        try:
-            r = requests.get(BBC_JSON, timeout=6)
-            r.raise_for_status()
-            bbc = r.json()
-            for art in random.sample(bbc, min(50, len(bbc))):
-                all_items.append((
-                    art['headline'],
-                    art.get('summary', ''),
-                    art['url']
-                ))
-        except Exception:
-            pass
-
         self.news_done.emit(all_items)
-
 
     def get_detail(self, url: str):
         self.pool.submit(self._detail_thread, url)
@@ -219,13 +204,12 @@ class NetWorker(QObject):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('查询天气 + 热点新闻  上位机')
+        self.setWindowTitle('天气+新闻 精简版')
         self.resize(500, 400)
 
         central = QWidget()
         self.setCentralWidget(central)
         lay = QVBoxLayout(central)
-
         # ---- 天气区 ----
         lay.addWidget(QLabel('<b>当日天气</b>'))
         self.city_edit = QLineEdit('北京')
@@ -238,7 +222,6 @@ class MainWindow(QMainWindow):
 
         self.weather_label = QLabel('温度：--　风力：--')
         lay.addWidget(self.weather_label)
-
         # ---- 新闻区 ----
         self._current_title = ''
         self._current_link = ''
@@ -249,7 +232,6 @@ class MainWindow(QMainWindow):
         h_btn.addWidget(self.refresh_btn)
         h_btn.addStretch()
         lay.addLayout(h_btn)
-
         # 左右分栏
         hsplit = QHBoxLayout()
         self.news_list = QListWidget()
@@ -292,6 +274,9 @@ class MainWindow(QMainWindow):
         self.worker.news_done.connect(self.on_news)
         self.worker.detail_done.connect(self.on_detail)
 
+         # ---- 新增：默认定位 ----
+        default_city = get_city_by_ip()
+        self.city_edit.setText(default_city)
         # 启动即查一次
         self.query_weather()
         # 启动即加载第 1 页
@@ -365,7 +350,6 @@ class MainWindow(QMainWindow):
         self.page_label.setText(f'第 {page + 1} 页')
         self.prev_btn.setEnabled(page > 0)
         self.next_btn.setEnabled(end < len(self._all_items))
-
         # 自动选中第一条并加载详情
         if self.news_list.count():
             self.news_list.setCurrentRow(0)
@@ -376,22 +360,11 @@ class MainWindow(QMainWindow):
         title, desc, link = self._all_items[row]
         self._current_title = title
         self._current_link = link
-
         # 1. 右侧先清空，提示加载中
         self.news_detail.clear()
         self.news_detail.setHtml(f'<h3>{title}</h3><p>正在加载正文…</p>')
-
         # 2. 立即后台抓正文
         self.worker.get_detail(link)
-    
-    # def on_detail(self, html: str):
-    #     title = self.news_detail.toHtml().split('</h3>')[0].replace('<h3>', '')
-    #     # 每段 <p> 前加 2 个全角空格
-    #     html = re.sub(r'<p([^>]*)>', r'<p\1>&emsp;&emsp;', html, flags=re.I)
-    #     converter = ImgBase64Converter()
-    #     html = converter.img2base64(html)  # 图片转 base64
-    #     print(html)
-    #     self.news_detail.setHtml(f'<h1 style="text-align:center;">{title}</h1>{html}')
 
     def on_detail(self, html: str):
         soup = BeautifulSoup(html, 'lxml')
@@ -406,7 +379,6 @@ class MainWindow(QMainWindow):
                 p.insert(0, NavigableString('\u00A0\u00A0'))
 
         html = str(soup)
-
         # 1. 先显示文字（图片还是原始 src）
         self._raw_html = html                  # 保留一份，用于后续局部替换
         self.news_detail.clear()
@@ -414,7 +386,6 @@ class MainWindow(QMainWindow):
             f'<h1 style="text-align:center;">{self._current_title}</h1>'
             f'{html}'
         )
-
         # 2. 启动异步转码
         self.img_converter = ImgBase64Converter(self)
         # 连自己的信号
@@ -426,23 +397,18 @@ class MainWindow(QMainWindow):
         """单张图下载完，直接在 QTextDocument 里把 src 换掉"""
         if not data_uri:                       # 下载失败直接忽略
             return
-
         # 1. 把当前 HTML 重新解析
         soup = BeautifulSoup(self.news_detail.toHtml(), 'lxml')
-
         # 2. 找到这张图片
         img = soup.find('img', {'src': old_src})
         if not img:                            # 已经换过了/被删了
             return
-
         # 3. 改 src + 统一居中样式
         img['src'] = data_uri
         img['style'] = 'display:block; margin:8px auto; max-width:100%; height:auto;'
-
         # 4. 外包一层居中 <p>
         p = soup.new_tag('p', style='text-align:center; margin:8px 0;')
         img.wrap(p)
-
         # 5. 写回 QTextEdit（保留滚动条）
         bar = self.news_detail.verticalScrollBar()
         pos = bar.value()
