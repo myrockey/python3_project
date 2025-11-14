@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QTextEdit, QPushButton,
-    QComboBox, QHBoxLayout, QVBoxLayout, QWidget, QLabel, QProgressBar
+    QComboBox, QHBoxLayout, QVBoxLayout, QWidget, QLabel, QProgressBar,QCheckBox
 )
 from PyQt6.QtCore import QIODevice,QTimer
 # 仅新增 QtSerialPort
@@ -48,6 +48,20 @@ class BluetoothSPPGui(QMainWindow):
         top.addWidget(self.progress)
         lay.addLayout(top)
 
+        baud_lay = QHBoxLayout()
+        self.cb_baud = QComboBox()
+        # 常见波特率
+        for b in ('9600','19200','38400','57600','115200','230400','460800','921600'):
+            self.cb_baud.addItem(b)
+        self.cb_baud.setCurrentText('115200')
+        self.auto_retry_cb = QCheckBox("打开失败自动重试")
+        self.auto_retry_cb.setToolTip("依次尝试 115200→9600→57600→38400")
+        baud_lay.addWidget(QLabel("波特率:"))
+        baud_lay.addWidget(self.cb_baud)
+        baud_lay.addWidget(self.auto_retry_cb)
+        baud_lay.addStretch()
+        lay.insertLayout(1, baud_lay)   # 插到串口行下面
+
         self.te_rx = QTextEdit()
         self.te_rx.setReadOnly(True)
         lay.addWidget(QLabel("接收区:"))
@@ -78,10 +92,9 @@ class BluetoothSPPGui(QMainWindow):
 
     # ---------- 打开/关闭串口 ----------
     def connect_device(self):
-        # 如果已打开，则关闭
         if self.socket and self.socket.isOpen():
             self.log("关闭串口...")
-            self.socket.close()          # 会触发 _on_disconnected
+            self.socket.close()
             return
 
         info = self.cb_devices.currentData()
@@ -89,19 +102,33 @@ class BluetoothSPPGui(QMainWindow):
             self.log("请先选择串口")
             return
 
-        # 新建串口对象
-        self.socket = QSerialPort(info)
-        self.socket.setBaudRate(115200)
-        self.socket.readyRead.connect(self.read_data)
-        self.socket.errorOccurred.connect(self._on_error)
-        # 关键：让 close() 触发 _on_disconnected
-        self.socket.aboutToClose.connect(self._on_disconnected)
+        # 用户选的速度
+        baud = int(self.cb_baud.currentText())
+        # 需要重试的列表
+        retry_list = [baud]
+        if self.auto_retry_cb.isChecked():
+            retry_list = [115200, 9600, 57600, 38400] if baud not in {115200,9600,57600,38400} else [baud]
 
-        ok = self.socket.open(QIODevice.OpenModeFlag.ReadWrite)
-        if ok:
-            self._on_connected()
-        else:
-            self._on_error(self.socket.error())
+        for br in retry_list:
+            self.log(f"尝试打开 {info.portName()} @ {br}")
+            self.socket = QSerialPort(info)
+            self.socket.setBaudRate(br)
+            self.socket.readyRead.connect(self.read_data)
+            self.socket.errorOccurred.connect(self._on_error)
+            self.socket.aboutToClose.connect(self._on_disconnected)
+
+            if self.socket.open(QIODevice.OpenModeFlag.ReadWrite):
+                # 成功就记住当前波特率
+                self.cb_baud.setCurrentText(str(br))
+                self._on_connected()
+                return
+            else:
+                self.socket.deleteLater()
+                self.socket = None
+
+        # 全部失败
+        self.log("所有波特率均无法打开，请检查硬件/驱动")
+        self.status_lbl.setText("打开失败")
 
     # ---------- 信号槽 ----------
     def _on_connected(self):

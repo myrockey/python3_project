@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QComboBox,
                              QLabel, QMessageBox, QCheckBox)
 from PyQt6.QtCore import QTimer, pyqtSignal, QObject
 from PyQt6.QtSerialPort import QSerialPort, QSerialPortInfo
-
+from datetime import datetime
 
 class SerialWorker(QObject):
     """串口数据转发器：把 readyRead 信号转成 Python 信号"""
@@ -28,7 +28,7 @@ class SerialWorker(QObject):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("rockey串口调试助手V1.0")
+        self.setWindowTitle("rockey-串口调试助手V1.0")
         self.resize(700, 500)
 
         # 中心控件
@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
         lay_top = QHBoxLayout()
         self.cb_port = QComboBox()
         self.cb_baud = QComboBox()
-        self.cb_baud.addItems(["9600", "115200", "38400", "19200"])
+        self.cb_baud.addItems(['9600','115200','38400','19200','57600','230400','460800','921600'])
         self.cb_baud.setCurrentText("9600")
         self.btn_open = QPushButton("打开串口")
         self.btn_refresh = QPushButton("刷新端口")
@@ -129,15 +129,17 @@ class MainWindow(QMainWindow):
 
     # ---------- 接收 ----------
     def handle_recv(self, data: bytes):
-        if self.cb_hex_rx.isChecked():          # === NEW
+        ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        if self.cb_hex_rx.isChecked():
             hex_str = ' '.join(f'{b:02X}' for b in data)
-            self.te_rx.append(hex_str)
+            self.te_rx.append(f'[{ts}] {hex_str}')
         else:
+            # 先按 GBK 试，失败再 UTF-8
             try:
                 text = data.decode('gbk', errors='replace').strip()
-            except:
+            except Exception:
                 text = data.decode('utf-8', errors='replace').strip()
-            self.te_rx.append(text)
+            self.te_rx.append(f'[{ts}] {text}')
 
     # ---------- 发送 ----------
     def send_data(self):
