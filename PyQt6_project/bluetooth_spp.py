@@ -19,7 +19,7 @@ from PyQt6.QtSerialPort import QSerialPort, QSerialPortInfo
 class BluetoothSPPGui(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("rockey-串口SPP调试蓝牙助手")
+        self.setWindowTitle("rockey-串口SPP蓝牙调试助手V1.0")
         self.resize(700, 500)
         self.socket = None          # 现在指向 QSerialPort，保持原名防改动
         self.build_ui()

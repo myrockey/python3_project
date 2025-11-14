@@ -1,3 +1,7 @@
+# 串口SPP调试蓝牙助手 上位机
+# 一键打包	pyinstaller -F -w bluetooth_BLE.py 生成无控制台 exe #打包压缩后大小大概35M
+# pyinstaller -F -w bluetooth_BLE.py --upx-dir D:\tools\upx-5.0.2-win6  #加了upx打包压缩后大小大概31M 
+
 """
 操作步骤：
 1.手机端打开 蓝牙调试工具，点击BLE从机 打开等待
@@ -60,7 +64,7 @@ def ui_to_bytes(s: str, mode: str) -> bytes:
 class BleDebugTool(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("BLE蓝牙调试助手V1.0")
+        self.setWindowTitle("rockey-BLE蓝牙调试助手V1.0")
         self.resize(700, 600)
         self.client: BleakClient | None = None
         self.build_ui()
