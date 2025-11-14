@@ -1,9 +1,10 @@
 # 串口SPP调试蓝牙助手 上位机
 # 一键打包	pyinstaller -F -w bluetooth_spp.py 生成无控制台 exe #打包压缩后大小大概35M
 # pyinstaller -F -w bluetooth_spp.py --upx-dir D:\tools\upx-5.0.2-win6  #加了upx打包压缩后大小大概31M 
-# 1.在电脑端打开蓝牙，并和手机的蓝牙配对成功。（同时可以查看电脑端-蓝牙设置-com端口-发现 SPP 或 Classic 字样 等相关端口，说明spp蓝牙配对成功，可以通过串口通信了）
-# 2.1 手机端打开蓝牙调试宝-服务端模式(SPP Server)-设置自动应答，以及接收编码模式为utf-8或其他格式
-# 2.2 电脑端打开软件，选择对应串口，并点击按钮打开，并接收到成功应答，说明连接蓝牙成功。
+
+# 1 手机端打开蓝牙调试宝-服务端模式(SPP Server)-设置自动应答，以及接收编码模式为utf-8或其他格式
+# 2.电脑端打开蓝牙，并和手机的蓝牙配对，配对成功并显示未连接或已连接，必须查看电脑端-蓝牙设置-com端口-发现 SPP 或 Classic 字样 等相关的端口，说明spp蓝牙配对成功并连接了com端口可以通过串口传输数据了。
+# 3.电脑端打开spp蓝牙助手软件，下拉选择对应com端口，并点击按钮打开，并接收到手机端的成功应答，说明连接手机蓝牙成功,可以进行电脑和手机的串口数据传输了。
 import sys
 from datetime import datetime
 from PyQt6.QtWidgets import (
